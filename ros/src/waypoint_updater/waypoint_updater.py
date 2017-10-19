@@ -7,7 +7,7 @@ from std_msgs.msg import Int32, Header
 
 import math
 import sys
-import tensorflow as tf
+import tf
 
 '''
 This node will publish waypoints from the car's current position to some `x` distance ahead.
@@ -33,15 +33,12 @@ class WaypointUpdater(object):
 
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
-
-        # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
         rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
         rospy.Subscriber('/obstacle_waypoint', Int32, self.obstacle_cb)
-        rospy.Subscriber('/current_vecolity', TwistStamped, self.current_velocity_cb)
+        rospy.Subscriber('/current_velocity', TwistStamped, self.current_velocity_cb)
 
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
 
-        # TODO: Add other member variables you need below
         self.current_pose = None
         self.base_waypoints = None
         self.traffic_waypoint = None
@@ -60,7 +57,7 @@ class WaypointUpdater(object):
 
             lane = Lane()
             lane.header.frame_id = '/world'
-            lane.header.stamp = rospy.now()
+            lane.header.stamp = rospy.Time(0)
             lane.waypoints = self.base_waypoints[next_index: next_index + LOOKAHEAD_WPS]
 
             self.final_waypoints_pub.publish(lane)
@@ -69,8 +66,9 @@ class WaypointUpdater(object):
         next_index = index
         p1 = self.current_pose.position
         p2 = self.base_waypoints[index].pose.pose.position
+        orientation = self.current_pose.orientation
         heading = math.atan2((p2.y - p1.y), (p2.x - p1.x))
-        euler = tf.transformations.euler_from_quaternion((p1.x,p1.y,p1.z,p1.w))
+        euler = tf.transformations.euler_from_quaternion((orientation.x,orientation.y,orientation.z,orientation.w))
         yaw = euler[2]
         angle = abs(yaw - heading)
 
@@ -85,12 +83,15 @@ class WaypointUpdater(object):
 
         for index, waypoint in enumerate(self.base_waypoints):
             position = waypoint.pose.pose.position
-            distance = self.distance(self.current_pose.position, position)
+            distance = self.dist(self.current_pose.position, position)
             if distance < closest_distance:
                 closest_distance = distance
                 closest_index = index
 
         return closest_index
+
+    def dist(self, p1,p2):
+        return math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2 + (p1.z - p2.z) ** 2)
 
     def pose_cb(self, msg):
        self.current_pose = msg.pose
@@ -105,7 +106,7 @@ class WaypointUpdater(object):
         self.obstacle_waypoint = msg.data
 
     def current_velocity_cb(self, msg):
-        pass
+        self.current_velocity = msg.twist.linear.x
 
     def get_waypoint_velocity(self, waypoint):
         return waypoint.twist.twist.linear.x
