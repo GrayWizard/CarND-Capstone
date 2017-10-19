@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 
 import rospy
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, TwistStamped
 from styx_msgs.msg import Lane, Waypoint
+from std_msgs.msg import Int32, Header
 
 import math
+import sys
+import tensorflow as tf
 
 '''
 This node will publish waypoints from the car's current position to some `x` distance ahead.
@@ -32,28 +35,76 @@ class WaypointUpdater(object):
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
 
         # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
-
+        rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
+        rospy.Subscriber('/obstacle_waypoint', Int32, self.obstacle_cb)
+        rospy.Subscriber('/current_vecolity', TwistStamped, self.current_velocity_cb)
 
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
 
         # TODO: Add other member variables you need below
+        self.current_pose = None
+        self.base_waypoints = None
+        self.traffic_waypoint = None
+        self.obstacle_waypoint = None
+        self.current_velocity = None
 
-        rospy.spin()
+        rate = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            self.loop()
+            rate.sleep()
+
+    def loop(self):
+        if self.current_pose and self.base_waypoints:
+            closest_index = self.calculate_closest_waypoint_index()
+            next_index = self.next_index(closest_index)
+
+            lane = Lane()
+            lane.header.frame_id = '/world'
+            lane.header.stamp = rospy.now()
+            lane.waypoints = self.base_waypoints[next_index: next_index + LOOKAHEAD_WPS]
+
+            self.final_waypoints_pub.publish(lane)
+
+    def next_index(self, index):
+        next_index = index
+        p1 = self.current_pose.position
+        p2 = self.base_waypoints[index].pose.pose.position
+        heading = math.atan2((p2.y - p1.y), (p2.x - p1.x))
+        euler = tf.transformations.euler_from_quaternion((p1.x,p1.y,p1.z,p1.w))
+        yaw = euler[2]
+        angle = abs(yaw - heading)
+
+        if angle > math.pi / 4:
+            next_index += 1
+
+        return next_index
+
+    def calculate_closest_waypoint_index(self):
+        closest_index = 0
+        closest_distance = sys.maxint
+
+        for index, waypoint in enumerate(self.base_waypoints):
+            position = waypoint.pose.pose.position
+            distance = self.distance(self.current_pose.position, position)
+            if distance < closest_distance:
+                closest_distance = distance
+                closest_index = index
+
+        return closest_index
 
     def pose_cb(self, msg):
-        # TODO: Implement
-        pass
+       self.current_pose = msg.pose
 
     def waypoints_cb(self, waypoints):
-        # TODO: Implement
-        pass
+       self.base_waypoints = waypoints.waypoints
 
     def traffic_cb(self, msg):
-        # TODO: Callback for /traffic_waypoint message. Implement
-        pass
+        self.traffic_waypoint = msg.data
 
     def obstacle_cb(self, msg):
-        # TODO: Callback for /obstacle_waypoint message. We will implement it later
+        self.obstacle_waypoint = msg.data
+
+    def current_velocity_cb(self, msg):
         pass
 
     def get_waypoint_velocity(self, waypoint):
