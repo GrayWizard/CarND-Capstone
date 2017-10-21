@@ -56,8 +56,8 @@ class WaypointUpdater(object):
 
             lane = Lane()
             lane.header.frame_id = '/world'
-            lane.header.stamp = rospy.Time(0)
-            lane.waypoints = self.base_waypoints[next_index: next_index + LOOKAHEAD_WPS]
+            lane.header.stamp = rospy.Time.now()
+            lane.waypoints = self.base_waypoints[next_index: min(len(self.base_waypoints),next_index + LOOKAHEAD_WPS)]
 
             self.final_waypoints_pub.publish(lane)
 
@@ -76,7 +76,7 @@ class WaypointUpdater(object):
 
     def calculate_closest_waypoint_index(self):
         closest_index = 0
-        closest_distance = sys.maxint
+        closest_distance = 100000
 
         for index, waypoint in enumerate(self.base_waypoints):
             position = waypoint.pose.pose.position
