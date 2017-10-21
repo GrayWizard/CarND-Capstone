@@ -42,7 +42,6 @@ class WaypointUpdater(object):
         self.current_pose = None
         self.base_waypoints = None
         self.traffic_waypoint = None
-        self.obstacle_waypoint = None
         self.current_velocity = None
 
         rate = rospy.Rate(10)
@@ -63,19 +62,17 @@ class WaypointUpdater(object):
             self.final_waypoints_pub.publish(lane)
 
     def next_index(self, index):
-        next_index = index
         p1 = self.current_pose.position
         p2 = self.base_waypoints[index].pose.pose.position
-        orientation = self.current_pose.orientation
-        heading = math.atan2((p2.y - p1.y), (p2.x - p1.x))
-        euler = tf.transformations.euler_from_quaternion((orientation.x,orientation.y,orientation.z,orientation.w))
-        yaw = euler[2]
-        angle = abs(yaw - heading)
+        p3 = self.base_waypoints[index + 1].pose.pose.position
+        vx, vy = p3.x - p1.x, p3.y - p1.y
+        dx, dy = p2.x - p1.x, p2.y - p1.y
+        dot = vx * dx + vy * dy
 
-        if angle > math.pi / 4:
-            next_index += 1
+        if dot < 0:
+            return index + 1
 
-        return next_index
+        return index
 
     def calculate_closest_waypoint_index(self):
         closest_index = 0
@@ -91,7 +88,7 @@ class WaypointUpdater(object):
         return closest_index
 
     def dist(self, p1,p2):
-        return math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2 + (p1.z - p2.z) ** 2)
+        return math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2)
 
     def pose_cb(self, msg):
        self.current_pose = msg.pose
