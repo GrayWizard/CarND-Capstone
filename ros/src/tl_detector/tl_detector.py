@@ -10,6 +10,7 @@ from light_classification.tl_classifier import TLClassifier
 import tf
 import cv2
 import yaml
+import math
 
 STATE_COUNT_THRESHOLD = 3
 
@@ -90,6 +91,10 @@ class TLDetector(object):
             self.upcoming_red_light_pub.publish(Int32(self.last_wp))
         self.state_count += 1
 
+
+    def dist(self, p1, p2):
+        return math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2)
+
     def get_closest_waypoint(self, pose):
         """Identifies the closest path waypoint to the given position
             https://en.wikipedia.org/wiki/Closest_pair_of_points_problem
@@ -100,8 +105,17 @@ class TLDetector(object):
             int: index of the closest waypoint in self.waypoints
 
         """
-        #TODO implement
-        return 0
+        closest_index = 0
+        closest_distance = 100000
+
+        for index, waypoint in enumerate(self.waypoints.waypoints):
+            position = waypoint.pose.pose.position
+            distance = self.dist(self.pose.pose.position, position)
+            if distance < closest_distance:
+                closest_distance = distance
+                closest_index = index
+
+        return closest_index
 
     def get_light_state(self, light):
         """Determines the current color of the traffic light
@@ -122,6 +136,9 @@ class TLDetector(object):
         #Get classification
         return self.light_classifier.get_classification(cv_image)
 
+    def find_closest_visible_traffic_light(self, car_position, stop_line_positions):
+        pass
+
     def process_traffic_lights(self):
         """Finds closest visible traffic light, if one exists, and determines its
             location and color
@@ -131,14 +148,17 @@ class TLDetector(object):
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
 
         """
+        if not (self.pose and self.waypoints):
+            return -1, TrafficLight.UNKNOWN
+
         light = None
 
         # List of positions that correspond to the line to stop in front of for a given intersection
         stop_line_positions = self.config['stop_line_positions']
-        if(self.pose):
-            car_position = self.get_closest_waypoint(self.pose.pose)
+        car_position = self.get_closest_waypoint(self.pose.pose)
 
         #TODO find the closest visible traffic light (if one exists)
+        closest_visible_traffic_light = self.find_closest_visible_traffic_light(car_position, stop_line_positions)
 
         if light:
             state = self.get_light_state(light)
