@@ -113,7 +113,7 @@ class TLDetector(object):
 
         for index, waypoint in enumerate(self.waypoints.waypoints):
             position = waypoint.pose.pose.position
-            distance = self.dist(self.pose.pose.position, position)
+            distance = self.dist(pose.position, position)
             if distance < closest_distance:
                 closest_distance = distance
                 closest_index = index
@@ -186,6 +186,7 @@ class TLDetector(object):
 
         light = self.lights[closest_visible_traffic_light]
         light_wp = self.get_closest_waypoint(light.pose.pose)
+        rospy.loginfo('light:' + str(closest_visible_traffic_light) + ',wp:' + str(light_wp))
         if light:
             state = self.get_light_state(light)
             return light_wp, state
