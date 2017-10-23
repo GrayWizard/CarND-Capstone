@@ -48,8 +48,7 @@ class WaypointUpdater(object):
 
     def update_and_publish(self):
         if self.current_pose and self.base_waypoints:
-            closest_index = self.calculate_closest_waypoint_index()
-            next_index = self.next_index(closest_index)
+            next_index = self.closest_forward_waypoint_index()
 
             lane = Lane()
             lane.header.frame_id = '/world'
@@ -58,18 +57,21 @@ class WaypointUpdater(object):
 
             self.final_waypoints_pub.publish(lane)
 
-    def next_index(self, index):
+    def closest_forward_waypoint_index(self):
+        closest_waypoint_index = self.calculate_closest_waypoint_index()
+        if self.has_passed_waypont(closest_waypoint_index):
+            return closest_waypoint_index + 1
+        else:
+            return closest_waypoint_index
+
+    def has_passed_waypont(self, index):
         p1 = self.current_pose.position
         p2 = self.base_waypoints[index].pose.pose.position
         p3 = self.base_waypoints[index + 1].pose.pose.position
         vx, vy = p3.x - p1.x, p3.y - p1.y
         dx, dy = p2.x - p1.x, p2.y - p1.y
         dot = vx * dx + vy * dy
-
-        if dot < 0:
-            return index + 1
-
-        return index
+        return (dot < 0)
 
     def calculate_closest_waypoint_index(self):
         closest_index = 0
