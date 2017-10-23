@@ -44,12 +44,9 @@ class WaypointUpdater(object):
         self.traffic_waypoint = None
         self.current_velocity = None
 
-        rate = rospy.Rate(10)
-        while not rospy.is_shutdown():
-            self.loop()
-            rate.sleep()
+        rospy.spin()
 
-    def loop(self):
+    def update_and_publish(self):
         if self.current_pose and self.base_waypoints:
             closest_index = self.calculate_closest_waypoint_index()
             next_index = self.next_index(closest_index)
@@ -92,15 +89,19 @@ class WaypointUpdater(object):
 
     def pose_cb(self, msg):
        self.current_pose = msg.pose
+       self.update_and_publish()
 
     def waypoints_cb(self, waypoints):
        self.base_waypoints = waypoints.waypoints
+       self.update_and_publish()
 
     def traffic_cb(self, msg):
         self.traffic_waypoint = msg.data
+        self.update_and_publish()
 
     def obstacle_cb(self, msg):
         self.obstacle_waypoint = msg.data
+        self.update_and_publish()
 
     def current_velocity_cb(self, msg):
         self.current_velocity = msg.twist.linear.x
