@@ -50,6 +50,8 @@ class TLDetector(object):
         self.last_wp = -1
         self.state_count = 0
 
+        self.count = 0
+
         rospy.spin()
 
     def pose_cb(self, msg):
@@ -62,35 +64,17 @@ class TLDetector(object):
         self.lights = msg.lights
 
     def image_cb(self, msg):
-        """Identifies red lights in the incoming camera image and publishes the index
-            of the waypoint closest to the red light's stop line to /traffic_waypoint
-
-        Args:
-            msg (Image): image from car-mounted camera
-
-        """
         self.has_image = True
         self.camera_image = msg
-        light_wp, state = self.process_traffic_lights()
-
-        '''
-        Publish upcoming red lights at camera frequency.
-        Each predicted state has to occur `STATE_COUNT_THRESHOLD` number
-        of times till we start using it. Otherwise the previous stable state is
-        used.
-        '''
-        if self.state != state:
-            self.state_count = 0
-            self.state = state
-        elif self.state_count >= STATE_COUNT_THRESHOLD:
-            self.last_state = self.state
-            light_wp = light_wp if state == TrafficLight.RED else -1
-            self.last_wp = light_wp
-            self.upcoming_red_light_pub.publish(Int32(light_wp))
+        if(not self.has_image):
+            return False
         else:
-            self.upcoming_red_light_pub.publish(Int32(self.last_wp))
-        self.state_count += 1
-
+            self.count += 1
+            if self.count%10==0:
+                cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+                filename = "/home/student/CarND-Capstone/training_images/"+str(rospy.Time.now())+".jpg"
+                #rospy.loginfo("Saving %s",filename)
+                cv2.imwrite(filename,cv_image)
 
     def dist(self, p1, p2):
         return math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2)
