@@ -11,8 +11,11 @@ import tf
 import cv2
 import yaml
 import math
+from collections import namedtuple
 
 STATE_COUNT_THRESHOLD = 3
+
+Point = namedtuple('Point', ['x', 'y'])
 
 class TLDetector(object):
     def __init__(self):
@@ -136,8 +139,29 @@ class TLDetector(object):
         #Get classification
         return self.light_classifier.get_classification(cv_image)
 
-    def find_closest_visible_traffic_light(self, car_position, stop_line_positions):
-        pass
+    def has_passed_point(self, p1, p2, p3):
+        vx, vy = p3.x - p1.x, p3.y - p1.y
+        dx, dy = p2.x - p1.x, p2.y - p1.y
+        dot = vx * dx + vy * dy
+        return dot < 0
+
+    def find_closest_visible_traffic_light(self, pose, stop_line_positions):
+        closest_index = -1
+        closest_distance = 100000
+        for index, stop_line in enumerate(stop_line_positions):
+            distance = self.dist(pose.position, Point(*stop_line))
+            if distance < closest_distance:
+                closest_distance = distance
+                closest_index = index
+
+        next_index = (closest_index + 1) % len(stop_line_positions)
+        passed = self.has_passed_point(pose.position, Point(*stop_line_positions[closest_index]),
+                                       Point(*stop_line_positions[next_index]))
+
+        if passed:
+            return next_index
+
+        return closest_index
 
     def process_traffic_lights(self):
         """Finds closest visible traffic light, if one exists, and determines its
@@ -155,15 +179,17 @@ class TLDetector(object):
 
         # List of positions that correspond to the line to stop in front of for a given intersection
         stop_line_positions = self.config['stop_line_positions']
-        car_position = self.get_closest_waypoint(self.pose.pose)
+        # car_position = self.get_closest_waypoint(self.pose.pose) # I don't think this is nessary
 
         #TODO find the closest visible traffic light (if one exists)
         closest_visible_traffic_light = self.find_closest_visible_traffic_light(self.pose.pose, stop_line_positions)
 
+        light = self.lights[closest_visible_traffic_light]
+        light_wp = self.get_closest_waypoint(light.pose.pose)
         if light:
             state = self.get_light_state(light)
             return light_wp, state
-        self.waypoints = None
+        # self.waypoints = None
         return -1, TrafficLight.UNKNOWN
 
 if __name__ == '__main__':
