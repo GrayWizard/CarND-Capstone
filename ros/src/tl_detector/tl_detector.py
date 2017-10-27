@@ -14,6 +14,7 @@ import math
 from collections import namedtuple
 
 STATE_COUNT_THRESHOLD = 3
+MAX_DISTANCE = 25
 
 Point = namedtuple('Point', ['x', 'y'])
 
@@ -113,7 +114,7 @@ class TLDetector(object):
 
         for index, waypoint in enumerate(self.waypoints.waypoints):
             position = waypoint.pose.pose.position
-            distance = self.dist(pose.position, position)
+            distance = self.dist(pose, position)
             if distance < closest_distance:
                 closest_distance = distance
                 closest_index = index
@@ -179,18 +180,28 @@ class TLDetector(object):
 
         # List of positions that correspond to the line to stop in front of for a given intersection
         stop_line_positions = self.config['stop_line_positions']
-        # car_position = self.get_closest_waypoint(self.pose.pose) # I don't think this is nessary
+        car_position = self.get_closest_waypoint(self.pose.pose.position)
 
         #TODO find the closest visible traffic light (if one exists)
-        closest_visible_traffic_light = self.find_closest_visible_traffic_light(self.pose.pose, stop_line_positions)
 
-        light = self.lights[closest_visible_traffic_light]
-        light_wp = self.get_closest_waypoint(light.pose.pose)
-        rospy.loginfo('light:' + str(closest_visible_traffic_light) + ',wp:' + str(light_wp))
+        light_wp = -1
+        for i, stop_line in enumerate(stop_line_positions):
+            distance = self.dist(self.pose.pose.position, Point(*stop_line))
+            if distance > MAX_DISTANCE:
+                continue
+            stop_line_wp = self.get_closest_waypoint(Point(*stop_line))
+            if stop_line_wp > car_position:
+                if light_wp == -1 or light_wp > stop_line_wp:
+                    light_wp = stop_line_wp
+                    light = self.lights[i]
+
         if light:
-            state = self.get_light_state(light)
+            # state = self.get_light_state(light)
+            state = light.state # just for testing and verification
+            rospy.loginfo('light_wp:' + str(light_wp) + ', state: ' + str(state))
             return light_wp, state
         # self.waypoints = None
+        rospy.loginfo('light_wp: -1, state: unknown')
         return -1, TrafficLight.UNKNOWN
 
 if __name__ == '__main__':
