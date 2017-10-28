@@ -8,6 +8,7 @@ from std_msgs.msg import Int32, Header
 import math
 import sys
 import tf
+import copy
 
 '''
 This node will publish waypoints from the car's current position to some `x` distance ahead.
@@ -25,7 +26,7 @@ TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
 LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this number
-
+SAFE_DISTANCE = 32.0
 
 class WaypointUpdater(object):
     def __init__(self):
@@ -41,8 +42,10 @@ class WaypointUpdater(object):
 
         self.current_pose = None
         self.base_waypoints = None
-        self.traffic_waypoint = None
-        self.current_velocity = None
+        self.traffic_waypoint = -1
+        self.current_velocity = 0
+
+        self.decel_limit = rospy.get_param('~decel_limit', -5)
 
         rospy.spin()
 
@@ -53,8 +56,26 @@ class WaypointUpdater(object):
             lane = Lane()
             lane.header.frame_id = '/world'
             lane.header.stamp = rospy.Time.now()
-            lane.waypoints = self.base_waypoints[next_index: min(len(self.base_waypoints),next_index + LOOKAHEAD_WPS)]
+            max_index = min(next_index + LOOKAHEAD_WPS, len(self.base_waypoints))
+            lane.waypoints = self.base_waypoints[next_index: max_index]
 
+            min_dist_stop = self.current_velocity ** 2 / (2 * (-self.decel_limit) ) + SAFE_DISTANCE
+            distance_to_tl = None
+            if self.traffic_waypoint != -1 and self.traffic_waypoint > next_index:
+                distance_to_tl = self.distance(self.base_waypoints, next_index, self.traffic_waypoint)
+                if distance_to_tl < min_dist_stop:
+                    lane.waypoints = copy.deepcopy(lane.waypoints[:self.traffic_waypoint - next_index])
+                    last_waypoint = lane.waypoints[-1]
+                    last_waypoint.twist.twist.linear.x =  0.0
+                    for index, point in enumerate(lane.waypoints):
+                        dist = self.dist(point.pose.pose.position, last_waypoint.pose.pose.position)
+                        dist = max(0.0, dist - SAFE_DISTANCE)
+                        velocity = math.sqrt(2 * (-self.decel_limit) * dist)
+                        if velocity < 1.0:
+                            velocity = 0.0
+                        point.twist.twist.linear.x = min(point.twist.twist.linear.x, velocity)
+
+            rospy.logerr('distance_to_tl:{}, min_dist_stop:{},current_velocity:{}'.format(distance_to_tl, min_dist_stop, self.current_velocity))
             self.final_waypoints_pub.publish(lane)
 
     def closest_forward_waypoint_index(self):
@@ -95,15 +116,12 @@ class WaypointUpdater(object):
 
     def waypoints_cb(self, waypoints):
        self.base_waypoints = waypoints.waypoints
-       self.update_and_publish()
 
     def traffic_cb(self, msg):
         self.traffic_waypoint = msg.data
-        self.update_and_publish()
 
     def obstacle_cb(self, msg):
-        self.obstacle_waypoint = msg.data
-        self.update_and_publish()
+        pass
 
     def current_velocity_cb(self, msg):
         self.current_velocity = msg.twist.linear.x

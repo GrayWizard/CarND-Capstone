@@ -14,7 +14,7 @@ import math
 from collections import namedtuple
 
 STATE_COUNT_THRESHOLD = 3
-MAX_DISTANCE = 25
+MAX_DISTANCE = 80
 
 Point = namedtuple('Point', ['x', 'y'])
 
@@ -198,10 +198,8 @@ class TLDetector(object):
         if light:
             # state = self.get_light_state(light)
             state = light.state # just for testing and verification
-            rospy.loginfo('light_wp:' + str(light_wp) + ', state: ' + str(state))
             return light_wp, state
         # self.waypoints = None
-        rospy.loginfo('light_wp: -1, state: unknown')
         return -1, TrafficLight.UNKNOWN
 
 if __name__ == '__main__':
