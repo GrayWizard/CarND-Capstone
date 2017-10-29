@@ -26,10 +26,12 @@ class Controller(object):
         self.previous_time = current_time
 
         throttle = self.throttle_pid.step(linear_velocity_error, sample_time)
+        throttle = max(0.0, min(1.0, throttle))
 
         brake = 0.0
-        if throttle < 0.0:
-            brake = -throttle
+        if linear_velocity_error < 0.0:
+            brake = -40.0 * linear_velocity_error
+            brake = max(brake, 1.0)
             throttle = 0.0
 
         steering = self.yaw_controller.get_steering(target_linear_velocity, target_angular_velocity, current_linear_velocity)
