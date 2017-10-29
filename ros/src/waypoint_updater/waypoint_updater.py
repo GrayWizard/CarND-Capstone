@@ -75,7 +75,7 @@ class WaypointUpdater(object):
                             velocity = 0.0
                         point.twist.twist.linear.x = min(point.twist.twist.linear.x, velocity)
 
-            rospy.logerr('distance_to_tl:{}, min_dist_stop:{},current_velocity:{}'.format(distance_to_tl, min_dist_stop, self.current_velocity))
+            #rospy.logerr('distance_to_tl:{}, min_dist_stop:{},current_velocity:{}'.format(distance_to_tl, min_dist_stop, self.current_velocity))
             self.final_waypoints_pub.publish(lane)
 
     def closest_forward_waypoint_index(self):

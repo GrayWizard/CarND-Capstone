@@ -27,6 +27,10 @@ class TLDetector(object):
         self.camera_image = None
         self.lights = []
 
+	self.n_predictions = 0
+	self.n_correct = 0
+
+	self.light_classifier = TLClassifier()
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         sub2 = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
 
@@ -46,7 +50,7 @@ class TLDetector(object):
         self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', Int32, queue_size=1)
 
         self.bridge = CvBridge()
-        self.light_classifier = TLClassifier()
+        
         self.listener = tf.TransformListener()
 
         self.state = TrafficLight.UNKNOWN
@@ -196,8 +200,20 @@ class TLDetector(object):
                     light = self.lights[i]
 
         if light:
-            # state = self.get_light_state(light)
             state = light.state # just for testing and verification
+
+	    #state = self.get_light_state(light) # comment this line to ignore classifier
+
+	    self.n_predictions += 1
+	    
+	    if light.state is not None:
+		# RED / NOT RED
+		if  light.state == state or (light.state > 0 and state > 0):
+		    self.n_correct += 1
+
+	    print('Prediction accuracy: {:.1f}%'.format(100 * self.n_correct/self.n_predictions))
+	    print('Predicted: {} - Ground truth: {}'.format(state, light.state))
+
             return light_wp, state
         # self.waypoints = None
         return -1, TrafficLight.UNKNOWN
