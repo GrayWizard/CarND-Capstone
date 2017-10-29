@@ -6,6 +6,7 @@ import numpy as np
 # WARN: mobilenet will not work on tensorflow 1.0
 #MODEL = 'mobilenet_2classes_050_quant.pb'
 MODEL = 'inception_2classes.pb'
+#MODEL = 'model.h5'
 N_CLASSES = 2
 BATCH_SIZE = 25
 
