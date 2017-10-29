@@ -4,15 +4,20 @@ import cv2
 import numpy as np
 
 # WARN: mobilenet will not work on tensorflow 1.0
+#MODEL = 'mobilenet_2classes_050_quant.pb'
 MODEL = 'inception_2classes.pb'
 N_CLASSES = 2
+BATCH_SIZE = 25
+
 
 class TLClassifier(object):
     def __init__(self):
         # load labels
 	labels_file = 'light_classification/model/output_labels_{}classes.txt'.format(N_CLASSES)
 	self.labels = self.load_labels(labels_file)
-	 
+	self.last_pred = TrafficLight.RED
+	self.images = []
+
 	model_file = 'light_classification/model/{}'.format(MODEL)
 	# load graph, which is stored in the default session
 	self.graph = self.load_graph(model_file)
@@ -50,18 +55,18 @@ class TLClassifier(object):
 	    predictions, = sess.run(softmax_tensor, {input_layer_name: image_data})
 
 	    # Sort to show labels in order of confidence
-	    top_k = predictions.argsort()[-num_top_predictions:]
-	    
+            top_k = predictions.argsort()[-num_top_predictions:]
+	   
 	    # for some reason mobilenet predictions are inverted
 	    if not 'mobilenet' in MODEL:
-	    	top_k = top_k[::-1]
+	     	top_k = top_k[::-1]
 
 	    #print('>> Predictions:')
-	    '''for node_id in top_k:
+	    for node_id in top_k:
 	        human_string = self.labels[node_id]
 	        score = predictions[node_id]
-	        print('%s (score = %.5f)' % (human_string, score))'''
-
+	        #print('%s (score = %.5f)' % (human_string, score))
+	
 	return self.labels[top_k[0]]
 
     def get_classification(self, image):
@@ -75,6 +80,15 @@ class TLClassifier(object):
 
         """
 
+	self.images.append(image)
+	
+	if len(self.images) < BATCH_SIZE:
+	     return self.last_pred
+
+	# Unfortunately, inception does not support batches,
+	# so we will just use the last image for now...
+	image = self.images[-1] #np.mean(self.images, axis=0)
+		
 	if 'mobilenet' in MODEL:
 	    image = cv2.resize(image, (224, 224), interpolation = cv2.INTER_CUBIC)
 	    image = image.astype(np.float)
@@ -84,15 +98,19 @@ class TLClassifier(object):
 	else:
 	    image = cv2.resize(image, (400, 300), interpolation = cv2.INTER_CUBIC)
 	    image = cv2.imencode('.jpg', image)[1].tostring()
+	
         
 	state = self.run_graph(image, self.labels, self.input_layer, 'final_result:0', N_CLASSES)
-	
-	if state == 'red':
-	    return TrafficLight.RED
-	elif state == 'yellow':
-	    return TrafficLight.YELLOW
-	elif state == 'green':
-	    return TrafficLight.GREEN
-	else:
-            return TrafficLight.UNKNOWN
 
+	self.images = []	
+
+	if state == 'red':
+	    self.last_pred = TrafficLight.RED
+	elif state == 'yellow':
+	    self.last_pred = TrafficLight.YELLOW
+	elif state == 'green':
+	    self.last_pred = TrafficLight.GREEN
+	else:
+            self.last_pred = TrafficLight.UNKNOWN
+
+	return self.last_pred

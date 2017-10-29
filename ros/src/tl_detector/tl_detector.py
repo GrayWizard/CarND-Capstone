@@ -13,6 +13,9 @@ import yaml
 import math
 from collections import namedtuple
 
+from multiprocessing import Pool
+
+
 STATE_COUNT_THRESHOLD = 3
 MAX_DISTANCE = 80
 
@@ -26,7 +29,7 @@ class TLDetector(object):
         self.waypoints = None
         self.camera_image = None
         self.lights = []
-
+	
 	self.n_predictions = 0
 	self.n_correct = 0
 
@@ -58,7 +61,7 @@ class TLDetector(object):
         self.last_wp = -1
         self.state_count = 0
 
-        rospy.spin()
+	rospy.spin()
 
     def pose_cb(self, msg):
         self.pose = msg
@@ -77,7 +80,7 @@ class TLDetector(object):
             msg (Image): image from car-mounted camera
 
         """
-        self.has_image = True
+	self.has_image = True
         self.camera_image = msg
         light_wp, state = self.process_traffic_lights()
 
@@ -202,7 +205,7 @@ class TLDetector(object):
         if light:
             state = light.state # just for testing and verification
 
-	    #state = self.get_light_state(light) # comment this line to ignore classifier
+	    state = self.get_light_state(light) # comment this line to ignore classifier
 
 	    self.n_predictions += 1
 	    
@@ -211,12 +214,13 @@ class TLDetector(object):
 		if  light.state == state or (light.state > 0 and state > 0):
 		    self.n_correct += 1
 
-	    print('Prediction accuracy: {:.1f}%'.format(100 * self.n_correct/self.n_predictions))
-	    print('Predicted: {} - Ground truth: {}'.format(state, light.state))
+	    #rospy.logerr('Prediction accuracy: {:.1f}%'.format(100 * self.n_correct/self.n_predictions))
+	    #rospy.logerr('Predicted: {} - Ground truth: {}'.format(state, light.state))
 
             return light_wp, state
         # self.waypoints = None
         return -1, TrafficLight.UNKNOWN
+
 
 if __name__ == '__main__':
     try:
