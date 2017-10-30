@@ -5,6 +5,7 @@ import numpy as np
 
 # WARN: mobilenet will not work on tensorflow 1.0
 MODEL = 'inception_2classes.pb'
+#MODEL = 'model.h5'
 N_CLASSES = 2
 
 class TLClassifier(object):
@@ -95,4 +96,5 @@ class TLClassifier(object):
 	    return TrafficLight.GREEN
 	else:
             return TrafficLight.UNKNOWN
+
 
